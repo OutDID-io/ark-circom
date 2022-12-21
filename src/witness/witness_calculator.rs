@@ -3,6 +3,7 @@ use color_eyre::Result;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use std::cell::Cell;
+use byteorder::{LittleEndian, WriteBytesExt};
 use wasmer::{imports, Function, Instance, Memory, MemoryType, Module, RuntimeError, Store};
 
 #[cfg(feature = "circom-2")]
@@ -148,6 +149,87 @@ impl WitnessCalculator {
                 new_circom1(instance, memory, version)
             }
         }
+    }
+
+    pub fn calculate_wtns_bin<I: IntoIterator<Item = (String, Vec<BigInt>)>>(
+        &mut self,
+        inputs: I,
+        sanity_check: bool,
+    ) -> Result<Vec<u8>> {
+        let mut buf32: Vec<u32> = Vec::new();
+        let mut buf: Vec<u8> = Vec::new();
+        // construct the .wtns file
+
+        // "wtns"
+        buf.push('w' as u8);
+        buf.push('t' as u8);
+        buf.push('n' as u8);
+        buf.push('s' as u8);
+
+        // version 2
+        buf32.push(2);
+
+        // 2 sections
+        buf32.push(2);
+
+        // id section 1
+        buf32.push(1);
+
+        let n32 = self.instance.get_field_num_len32()?;
+        let n8 = n32 * 4;
+
+        // id section 1 in 64 bits
+        let idSection1length = 8 + n8;
+        let mut idSection1lengthHex = format!("{:x}", idSection1length);
+        // pad with 0 until it is 8 bytes
+        while idSection1lengthHex.len() < 16 {
+            idSection1lengthHex = "0".to_owned() + &idSection1lengthHex;
+        }
+
+        buf32.push(u32::from_str_radix(&idSection1lengthHex[8..16], 16).unwrap());
+        buf32.push(u32::from_str_radix(&idSection1lengthHex[0..8], 16).unwrap());
+        println!("buf32[3] {}\nbuf32[4] {}", buf32[3], buf32[4]);
+
+        // n32
+        buf32.push(n8);
+
+        // prime number
+        self.instance.get_raw_prime()?;
+        for j in 0..n32 {
+            buf32.push(self.instance.read_shared_rw_memory(j)?);
+        }
+
+        let witness_size = self.instance.get_witness_size()?;
+        // witness size
+        buf32.push(witness_size);
+
+        // section 2
+        buf32.push(2);
+
+        // section 2 length
+	    let idSection2length = n8*witness_size;
+        let mut idSection2lengthHex = format!("{:x}", idSection2length);
+
+        // pad with 0 until it is 8 bytes
+        while idSection2lengthHex.len() < 16 {
+            idSection2lengthHex = "0".to_owned() + &idSection2lengthHex;
+        }
+        buf32.push(u32::from_str_radix(&idSection2lengthHex[8..16], 16).unwrap());
+        buf32.push(u32::from_str_radix(&idSection2lengthHex[0..8], 16).unwrap());
+
+        for i in 0..witness_size {
+            self.instance.get_witness(i)?;
+            for j in 0..n32 {
+		        buf32.push(self.instance.read_shared_rw_memory(j)?);
+            }
+        }
+
+        // convert the 32-bit buffer to an 8-bit buffer
+        for b in buf32 {
+            buf.write_u32::<LittleEndian>(b).unwrap();
+        }
+
+        return Ok(buf);
     }
 
     pub fn calculate_witness<I: IntoIterator<Item = (String, Vec<BigInt>)>>(
