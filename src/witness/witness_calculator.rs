@@ -156,6 +156,7 @@ impl WitnessCalculator {
         inputs: I,
         sanity_check: bool,
     ) -> Result<Vec<u8>> {
+        self.calculate_witness(inputs, sanity_check);
         let mut buf32: Vec<u32> = Vec::new();
         let mut buf: Vec<u8> = Vec::new();
         // construct the .wtns file
