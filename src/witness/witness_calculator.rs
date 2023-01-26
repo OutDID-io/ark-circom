@@ -83,6 +83,8 @@ impl WitnessCalculator {
                 "log" => runtime::log_component(store),
                 "exceptionHandler" => runtime::exception_handler(store),
                 "showSharedRWMemory" => runtime::show_memory(store),
+                "printErrorMessage" => runtime::print_error_message(store),
+                "writeBufferMessage" => runtime::write_buffer_message(store),
             }
         };
         let instance = Wasm::new(Instance::new(&module, &import_object)?);
@@ -277,7 +279,7 @@ impl WitnessCalculator {
             for (i, value) in values.into_iter().enumerate() {
                 self.memory.write_fr(p_fr as usize, &value)?;
                 self.instance
-                    .set_signal(0, 0, (sig_offset + i) as u32, p_fr as u32)?;
+                    .set_signal(0, 0, (sig_offset + i) as u32, p_fr)?;
             }
         }
 
@@ -411,6 +413,20 @@ mod runtime {
 
     // Circom 2.0
     pub fn show_memory(store: &Store) -> Function {
+        #[allow(unused)]
+        fn func() {}
+        Function::new_native(store, func)
+    }
+
+    // Circom 2.0
+    pub fn print_error_message(store: &Store) -> Function {
+        #[allow(unused)]
+        fn func() {}
+        Function::new_native(store, func)
+    }
+
+    // Circom 2.0
+    pub fn write_buffer_message(store: &Store) -> Function {
         #[allow(unused)]
         fn func() {}
         Function::new_native(store, func)
