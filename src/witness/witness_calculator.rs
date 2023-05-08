@@ -1,9 +1,9 @@
 use super::{fnv, CircomBase, SafeMemory, Wasm};
+use byteorder::{LittleEndian, WriteBytesExt};
 use color_eyre::Result;
 use num_bigint::BigInt;
 use num_traits::Zero;
 use std::cell::Cell;
-use byteorder::{LittleEndian, WriteBytesExt};
 use wasmer::{imports, Function, Instance, Memory, MemoryType, Module, RuntimeError, Store};
 
 #[cfg(feature = "circom-2")]
@@ -68,7 +68,7 @@ impl WitnessCalculator {
         let store = module.store();
 
         // Set up the memory
-        let memory = Memory::new(store, MemoryType::new(2000, None, false)).unwrap();
+        let memory = Memory::new(store, MemoryType::new(30, None, false)).unwrap();
         let import_object = imports! {
             "env" => {
                 "memory" => memory.clone(),
@@ -210,7 +210,7 @@ impl WitnessCalculator {
         buf32.push(2);
 
         // section 2 length
-	    let idSection2length = n8*witness_size;
+        let idSection2length = n8 * witness_size;
         let mut idSection2lengthHex = format!("{:x}", idSection2length);
 
         // pad with 0 until it is 8 bytes
@@ -223,7 +223,7 @@ impl WitnessCalculator {
         for i in 0..witness_size {
             self.instance.get_witness(i)?;
             for j in 0..n32 {
-		        buf32.push(self.instance.read_shared_rw_memory(j)?);
+                buf32.push(self.instance.read_shared_rw_memory(j)?);
             }
         }
 
